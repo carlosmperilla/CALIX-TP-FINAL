@@ -1,4 +1,5 @@
 from os.path import join
+from typing import Tuple
 
 from requests import get
 
@@ -11,7 +12,7 @@ from .file_handler import (
                             )
 
 
-def requests_and_write(url_file: str, files_path: str, older_files_path: str) -> bool:
+def requests_and_write(url_file: str, files_path: str, older_files_path: str) -> Tuple[bool, str]:
     """
         A partir de una petición reescribe un archivo de forma segura.
         - Las versiones viejas son respaldadas.
@@ -23,6 +24,7 @@ def requests_and_write(url_file: str, files_path: str, older_files_path: str) ->
         
     file_request = get(url_file)
     is_success = False
+    file_name = ""
     if file_request.status_code == 200:
         file_name = url_file.split('/')[-1]
         file_path = join(files_path, file_name)
@@ -31,4 +33,4 @@ def requests_and_write(url_file: str, files_path: str, older_files_path: str) ->
         is_success = write_file(file_path, file_request.content)
     else:
         logger.error(f"Request incorrecto - status: {file_request.status_code}")
-    return is_success
+    return is_success, file_name

@@ -1,8 +1,13 @@
+from os.path import join
+from typing import Tuple
+
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+import pandas as pd
 
 from .constants import (
                         FIRST_LOAD_TIMEOUT,
@@ -13,7 +18,8 @@ from .constants import (
                         DATASET_LINK_XPATH,
                         DATASET_FILE_LINK_XPATH,
                         FILES_PATH,
-                        OLDER_FILES_PATH
+                        OLDER_FILES_PATH,
+                        FILE_TYPE
                         )
 
 from utils.logger import logger
@@ -28,14 +34,14 @@ class Bot:
         }
 
     @staticmethod
-    def download_file(url_file: str) -> bool:
+    def download_file(url_file: str) -> Tuple[bool, str]:
         """
             Descarga el archivo y retorna si fue exitosó o no.
         """
         logger.info("Se esta realizando la petición y escritura del archivo...")
 
         # Obtiene el archivo por medio de una petición y lo escribe en el disco.
-        is_success = requests_and_write(
+        is_success, file_name = requests_and_write(
                             url_file=url_file,
                             files_path=FILES_PATH,
                             older_files_path=OLDER_FILES_PATH
@@ -43,7 +49,23 @@ class Bot:
         if is_success:
             logger.info("¡Archivo descargado correctamente!")
         
-        return is_success
+        return is_success, file_name
+    
+    @staticmethod
+    def process_file(file_name):
+        file_path = join(FILES_PATH, file_name)
+        if FILE_TYPE == "CSV":
+            c1 = "automotor_anio_modelo > 2015"
+            c2 = "registro_seccional_provincia == 'Formosa'"
+            c3 = "automotor_origen == 'Nacional'"
+
+            c1b = "registro_seccional_codigo == 1216"
+            c2b = "automotor_origen == 'Importado'"
+            
+            df = pd.read_csv(file_path, dtype={"automotor_tipo_codigo": object})
+            
+            print(df.query(f"{c1} and {c2} and {c3}"))
+            print(df.query(f"{c1b} and {c2b}"))
 
     def __init__(self):
         self.driver_options = webdriver.ChromeOptions()
@@ -51,11 +73,12 @@ class Bot:
 
     def run(self):
         url_file = self.selenium_scrapping()
-        was_downloaded = self.download_file(url_file)
+        was_downloaded, file_name = self.download_file(url_file)
         if was_downloaded:
-            print("Procesando archivo")
+            logger.info(f"Procesando archivo: {file_name}")
+            self.process_file(file_name)
         else:
-            logger.error("El archivo no fue descargado")
+            logger.error("El archivo no fue descargado.")
 
     def selenium_scrapping(self) -> str:
         """
