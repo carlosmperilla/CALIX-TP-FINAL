@@ -41,13 +41,7 @@ def get_element_by_xpath(
         expected_condition((By.XPATH, xpath))
     )
 
-
-def run() -> bool:
-    """
-        Corre el codigo principal del BOT.
-        - Retorna True si el funcionamiento fue el esperado, False en caso contrario.
-    """
-
+def selenium_scrapping() -> str:
     options = webdriver.ChromeOptions()
     url_file = ""
     
@@ -71,6 +65,9 @@ def run() -> bool:
         dataset_file_link_element = get_element_by_xpath(driver, DATASET_FILE_LINK_XPATH)
         url_file = dataset_file_link_element.get_attribute("href")
     
+    return url_file
+
+def download_file(url_file: str) -> bool:
     logger.info("Se esta realizando la petición y escritura del archivo...")
 
     # Obtiene el archivo por medio de una petición y lo escribe en el disco.
@@ -83,3 +80,16 @@ def run() -> bool:
         logger.info("¡Archivo descargado correctamente!")
     
     return is_success
+
+def run() -> bool:
+    """
+        Corre el codigo principal del BOT.
+        - Retorna True si el funcionamiento fue el esperado, False en caso contrario.
+    """
+
+    url_file = selenium_scrapping()
+    if download_file(url_file):
+        print("Procesando archivo")
+    else:
+        print("error")
+    
