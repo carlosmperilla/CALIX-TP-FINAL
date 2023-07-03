@@ -1,8 +1,9 @@
-from bot.bot import run
+from bot.bot import Bot
 from utils.logger import logger
 
 if __name__ == "__main__":
     try:
-        run()
+        bot = Bot()
+        bot.run()
     except Exception as e:
         logger.critical(f"Ha ocurrido un error en la ejecución del BOT: {e}")
