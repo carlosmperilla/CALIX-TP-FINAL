@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 SQLALCHEMY_DATABASE_URL = f"sqlite:///./transferencias_autos.db"
 
+# check_same_thread es necesario solo condición necesaria para squlite.
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
