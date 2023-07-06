@@ -33,6 +33,6 @@ def get_country(code: str, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=List[schemas.Country], tags=["Country"])
-def get_countries(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def get_countries(skip: int = 0, limit: int = -1, db: Session = Depends(get_db)):
     countries = db.query(models.Country).offset(skip).limit(limit).all()
     return countries

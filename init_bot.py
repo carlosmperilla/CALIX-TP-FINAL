@@ -1,4 +1,4 @@
-from bot.bot import Bot
+from bot import Bot
 from utils.logger import logger
 
 if __name__ == "__main__":

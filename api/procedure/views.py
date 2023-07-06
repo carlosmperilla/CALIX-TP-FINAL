@@ -33,6 +33,6 @@ def get_procedure(code_number: str, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=List[schemas.Procedure], tags=["Procedure"])
-def get_procedures(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def get_procedures(skip: int = 0, limit: int = -1, db: Session = Depends(get_db)):
     procedures = db.query(models.Procedure).offset(skip).limit(limit).all()
     return procedures

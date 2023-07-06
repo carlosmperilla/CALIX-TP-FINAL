@@ -34,7 +34,7 @@ def get_province(code: str, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=List[schemas.Province], tags=["Province"])
-def get_provinces(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def get_provinces(skip: int = 0, limit: int = -1, db: Session = Depends(get_db)):
     provinces = db.query(models.Province).offset(skip).limit(limit).all()
     return provinces
 
