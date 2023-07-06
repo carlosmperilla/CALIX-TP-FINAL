@@ -7,3 +7,4 @@ if __name__ == "__main__":
         bot.run()
     except Exception as e:
         logger.critical(f"Ha ocurrido un error en la ejecución del BOT: {e}")
+        logger.exception(e)

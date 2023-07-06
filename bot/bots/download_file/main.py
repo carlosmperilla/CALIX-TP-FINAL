@@ -52,6 +52,7 @@ class DownloadFile:
                 file.write(content)
         except Exception as e:
             logger.error(f"Un error ha ocurrido al intentar escribir el archivo: {e}")
+            logger.exception(e)
             return False
         else:
             return True
