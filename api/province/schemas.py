@@ -1,4 +1,4 @@
-from typing import List
+from typing import Union, List
 
 from pydantic import BaseModel
 
@@ -11,7 +11,7 @@ class ProvinceBase(BaseModel):
 
 
 class ProvinceCreate(ProvinceBase):
-    country_code: str
+    country_code: Union[str, None]
 
 
 class ProvinceNested(ProvinceBase):

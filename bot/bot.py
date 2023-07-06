@@ -1,5 +1,5 @@
 from os.path import join
-from typing import Tuple
+from typing import Tuple, List
 
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
@@ -62,10 +62,118 @@ class Bot:
             c1b = "registro_seccional_codigo == 1216"
             c2b = "automotor_origen == 'Importado'"
             
-            df = pd.read_csv(file_path, dtype={"automotor_tipo_codigo": object})
+            df = pd.read_csv(file_path, dtype={"automotor_tipo_codigo": object, "titular_domicilio_provincia_id": str})
+
+            equivalencia = {
+                "procedure": {
+                    # "code_number": lambda serie: str(serie.name), # dff.iloc[0].name
+                    "tramite_tipo": "type",
+                    "titular_domicilio_provincia_id": "province_code"
+                },
+                "province": {
+                    "titular_domicilio_provincia": "name",
+                    "titular_domicilio_provincia_id": "code",
+                    "titular_pais_nacimiento_id": "country_code"
+                },
+                "country": {
+                    "titular_pais_nacimiento_id": "code",
+                    "titular_pais_nacimiento": "name"
+                }
+            }
+            from requests import post
+            df_a = df.query(f"{c1} and {c2} and {c3}")
+            df_b = df.query(f"{c1b} and {c2b}")
+
+
+
+            def row_parse(row, table_name: str) -> dict:
+                return row[equivalencia[table_name].keys()].rename(equivalencia[table_name]).to_dict()
+
+            def send_hold_provinces(provinces_on_hold: dict):
+                status_success = []
+                error_messages = []
+                for province_data in provinces_on_hold.values():
+                    response = post(f"http://127.0.0.1:8000/provinces", json=province_data)
+                    is_response_success = response.status_code == 200
+                    status_success.append(is_response_success)
+
+                    if not is_response_success:
+                        error_messages.append(response.text)
+
+                return all(status_success), error_messages
             
-            print(df.query(f"{c1} and {c2} and {c3}"))
-            print(df.query(f"{c1b} and {c2b}"))
+
+            def post_all_data(
+                    all_data: dict,
+                    codes_alredy_stored: dict, 
+                    provinces_on_hold: dict
+                    ) -> Tuple[bool, List[str]]:
+                status_success = []
+                error_messages = []
+                nan_to_none = lambda value: None if pd.isna(value) else value
+
+                for endpoint, data in all_data.items():
+                    new_data = {key: nan_to_none(value) for key, value in data.items()}
+                    new_data_code = new_data.get("code")
+                    
+                    codes_by_endpoint = codes_alredy_stored.get(endpoint)
+                    has_codes_by_endpoint = codes_by_endpoint is not None
+                    if has_codes_by_endpoint:
+                        if new_data_code in codes_by_endpoint:
+                                continue
+                        
+                    # mientras contry_code sea nulo se guarda, si se persiste si va el caso al final.
+                    if endpoint == "provinces":
+
+                        if new_data.get("country_code") is None:
+                            provinces_on_hold[new_data_code] = new_data
+                            continue
+                        else:
+                            provinces_on_hold.pop(new_data_code, None)
+
+                    response = post(f"http://127.0.0.1:8000/{endpoint}", json=new_data)
+                    is_response_success = response.status_code == 200
+                    status_success.append(is_response_success)
+                    
+                    if is_response_success:
+                        if has_codes_by_endpoint:
+                            codes_by_endpoint.add(new_data_code)
+                    else:
+                        error_messages.append(response.text)
+
+                return all(status_success), error_messages
+
+            
+            logger.info("Parceo y carga de datos en proceso...")
+            
+            codes_alredy_stored = {
+                "countries": set(),
+                "provinces": set()
+            }
+            provinces_on_hold = {}
+            for df_aux in (df_a, df_b):
+                for index, row in df_aux.iterrows():
+                    all_data = {
+                        "countries": row_parse(row, "country"),
+                        "provinces": row_parse(row, "province"),
+                        "procedures": row_parse(row, "procedure"),
+                    }
+
+                    all_data["procedures"]["code_number"] = str(index)
+
+                    is_all_successful, error_messages = post_all_data(all_data, codes_alredy_stored, provinces_on_hold)
+                    if not is_all_successful:
+                        logger.error(f"No se han podido enviar a la API los datos, errores: {error_messages}")
+
+
+            if len(provinces_on_hold) != 0:
+                is_all_successful, error_messages = send_hold_provinces(provinces_on_hold)
+                if not is_all_successful:
+                        logger.error(f"No se han podido enviar a la API los datos, errores: {error_messages}")
+
+            logger.info("¡Peticiones POST Finalizadas!")
+
+            
 
     def __init__(self):
         self.driver_options = webdriver.ChromeOptions()
