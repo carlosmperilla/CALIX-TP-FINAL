@@ -1,4 +1,6 @@
 from typing import Tuple, List
+from threading import Thread
+from queue import Queue
 
 from requests import post
 
@@ -17,6 +19,10 @@ class SendData:
             "countries": set(),
             "provinces": set()
         }
+        self.status_success = []
+        self.error_messages = []
+        self.threads = []
+        self.data_queue = Queue()
 
     def skip_endpoint(self, endpoint: str, new_data_code) -> Tuple[bool, List[str], bool]:
         """
@@ -55,22 +61,28 @@ class SendData:
         """
         response = post(f"{self.URL_BASE}/{endpoint}", json=data)
         return response.status_code == 200, response.text
+    
+    def post_data_thread(self, endpoint: str, new_data: dict):
+        """
+            Realiza la petición y encola la información obtenida.
+        """
+        info = (endpoint, new_data, *self.post_data(endpoint, new_data))
+        self.data_queue.put(info)
 
     def post_all_data(self, all_data: dict) -> Tuple[bool, List[str]]:
         """
             Envía toda la data que se puede extraer de una fila.
         """
-        status_success = []
-        error_messages = []
+        self.status_success = []
+        self.error_messages = []
+        self.threads = []
         nan_to_none = lambda value: None if isna(value) else value
 
         for endpoint, data in all_data.items():
             new_data = {key: nan_to_none(value) for key, value in data.items()}
             new_data_code = new_data.get("code")
 
-            is_skipped,\
-            codes_by_endpoint,\
-            has_codes_by_endpoint = self.skip_endpoint(endpoint, new_data_code)
+            is_skipped, *_ = self.skip_endpoint(endpoint, new_data_code)
             if is_skipped:
                 logger.info(f"Salteando {endpoint} con {new_data} - motivo: Ya registrada")
                 continue
@@ -80,17 +92,31 @@ class SendData:
                 logger.info(f"Salteando (temporalmente) {endpoint} con {new_data} - motivo: Holdeo de Provincia hasta encontrar country_code distinto de None")
                 continue
 
-            is_response_success, response_text= self.post_data(endpoint, new_data)
-            status_success.append(is_response_success)
+            thread = Thread(target=self.post_data_thread, args=(endpoint, new_data))
+            self.threads.append(thread)
+            thread.start()
             
+        for thread in self.threads:
+            thread.join()
+
+        self.cache_codes()
+
+        return all(self.status_success), self.error_messages
+
+    def cache_codes(self):
+        """
+            Guarda en cache los codigos y los estados de exito.
+        """
+        while not self.data_queue.empty():
+            endpoint, new_data, is_response_success, response_text = self.data_queue.get()
+            new_data_code = new_data.get("code")
+            _, codes_by_endpoint, has_codes_by_endpoint = self.skip_endpoint(endpoint, new_data_code)
+            self.status_success.append(is_response_success)
             if is_response_success:
                 if has_codes_by_endpoint:
                     codes_by_endpoint.add(new_data_code)
             else:
-                error_messages.append(response_text)
-
-        return all(status_success), error_messages
-
+                self.error_messages.append(response_text)
 
     def has_provinces_on_hold(self) -> bool:
         """
