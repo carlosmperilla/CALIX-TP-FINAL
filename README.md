@@ -7,12 +7,12 @@ python -m venv calix_venv
 calix_venv\Scripts\activate
 pip install -r requirements.txt
 ```
-## Iniciar API
+### Iniciar API
 ```sh
 uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
-## Iniciar BOT
+### Iniciar BOT
 ```sh
 python init_bot.py
 ```
